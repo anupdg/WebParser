@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using HtmlAgilityPack;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,16 +19,19 @@ namespace WebParser.Api.Scan
     {
         private readonly IStorageManager _storageManager;
         private readonly IMapper _mapper;
+        private readonly ILogger<DataExtractor> _logger;
 
         /// <summary>
         /// Constructor
         /// </summary>
         /// <param name="storageManager">Storage interface</param>
         /// <param name="mapper">Automapper</param>
-        public DataExtractor(IStorageManager storageManager, IMapper mapper)
+        ///  <param name="logger">Logger</param>
+        public DataExtractor(IStorageManager storageManager, IMapper mapper, ILogger<DataExtractor> logger)
         {
             _storageManager = storageManager;
             _mapper = mapper;
+            _logger = logger;
         }
 
         /// <summary>
@@ -128,6 +132,7 @@ namespace WebParser.Api.Scan
         /// <returns>Task</returns>
         public async Task Extract(ScanJob scanJob)
         {
+            Uri uri = new Uri(scanJob.Url);
             var words = new Dictionary<string, int>();
             var wordPairs = new Dictionary<string, int>();
             var urls = new List<ExtractionStatus>() { new ExtractionStatus() { Url = scanJob.Url.ToLower().Trim(), Depth = 1, Picked = false } };
@@ -138,26 +143,37 @@ namespace WebParser.Api.Scan
 
                 if (url != null)
                 {
-                    var text = await GetText(url.Url, url.Depth <= 4);
-
-                    await GetWords(text.Item1, words, wordPairs);
-                    url.Picked = true;
-                    if (text.Item2.Any())
+                    try
                     {
-                        foreach (var u in text.Item2)
+                        var text = await GetText(url.Url, url.Depth <= 4);
+
+                        await GetWords(text.Item1, words, wordPairs);
+                        url.Picked = true;
+                        if (text.Item2.Any())
                         {
-                            var tempUrl = u.ToLower().Trim();
-                            if ((tempUrl.Contains("https") || tempUrl.Contains("http")) && !urls.Any(c => c.Url.Equals(tempUrl)))
+                            
+                            foreach (var u in text.Item2)
                             {
-                                urls.Add(new ExtractionStatus() { Url = u, Depth = url.Depth + 1, Picked = false });
+                                var tempUrl = u.ToLower().Trim();
+                                if ((tempUrl.Contains("https") || tempUrl.Contains("http"))
+                                    && tempUrl.Contains(uri.Host.ToLower())
+                                    && !urls.Any(c => c.Url.Equals(tempUrl)))
+                                {
+                                    urls.Add(new ExtractionStatus() { Url = u, Depth = url.Depth + 1, Picked = false });
+                                }
                             }
                         }
+                        var jobs = _mapper.Map<ScanJobEntity>(scanJob);
+                        UpdateCount(jobs, words, wordPairs);
+                        jobs.Message = $"{urls.Count(c => c.Picked)} url and dependent urls processed, {urls.Count(c => !c.Picked)} yet to process. ";
+                        _storageManager.UpdateScanJobs(jobs);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"Some error in extracting content got url {url.Url}", url);
                     }
                 }
-                var jobs = _mapper.Map<ScanJobEntity>(scanJob);
-                UpdateCount(jobs, words, wordPairs);
-                jobs.Message = $"{urls.Count(c => c.Picked)} url and dependent urls processed, {urls.Count(c => !c.Picked)} yet to process. ";
-                _storageManager.UpdateScanJobs(jobs);
+
 
             }
 
