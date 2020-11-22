@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="10.1.1" />
+    <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="8.1.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.1.8" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WebParser.Api.BackgroundProcessor\WebParser.Api.BackgroundProcessor.csproj" />
+    <ProjectReference Include="..\WebParser.Api.Common\WebParser.Api.Common.csproj" />
+    <ProjectReference Include="..\WebParser.Api.Scan\WebParser.Api.Scan.csproj" />
+    <ProjectReference Include="..\WebParser.Api.Storage\WebParser.Api.Storage.csproj" />
+  </ItemGroup>
+
+
+</Project>
